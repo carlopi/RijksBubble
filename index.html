@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Bubble Rijks</title>
+    <script src="src/bubbleContainer.js"></script>
+  </head>
+<body>
+<div style = "height:95vmin; width:95vmin;">
+<div style ="position: relative; width: 100%; height:0; padding-bottom: 100%;">
+<div style="height:100%; width:100%; position: absolute; background-color: lightslategrey;" id="ciccio"></div>
+</div> 
+</div>
+<!-- page content -->
+  </body>
+  <script>
+
+var CICCIO = new BubbleContainer(document.getElementById("ciccio"));
+var good = false;
+
+function sendJSON(query, F)
+{
+	var request = new XMLHttpRequest();
+
+	request.onload = F;
+
+	const theme = "";
+
+	var S = "https://www.rijksmuseum.nl/api/nl/collection?";
+//	if (true || theme !== "")
+		S += "q=" + theme;
+	S += query + "&key=HWZvTeJR";
+	S += "&toppieces=True";
+	S += "&format=json";	
+	S += "&imgonly=True";
+	S += "&s=relevance";
+//	S += "&f.dating.period=20";
+//	S += "&type=tekening";
+//	S += "&type=foto";
+//	S += "&type=schilderij";
+	request.open("get", S, true);
+	request.send();
+}
+
+function dim(obj)
+{
+	obj.style.opacity = 0.5;
+}
+
+var LAST_CLICKED = null;
+function clicked(obj)
+{
+	if (LAST_CLICKED)
+		LAST_CLICKED.style.opacity = 1.0;
+
+	if (LAST_CLICKED && LAST_CLICKED.principalOrFirstMaker === obj.principalOrFirstMaker)
+	{
+		const old = LAST_CLICKED;
+		LAST_CLICKED = null;
+		if (old !== obj)
+		{
+			console.log(old.principalOrFirstMaker + " !!!!");
+			CICCIO.erase(old);
+			CICCIO.erase(obj);
+			CURRENT_PAIRS--;
+			addPair();
+			addPair();
+		}
+	}
+	else
+	{
+		LAST_CLICKED = obj;
+	}
+
+	if (LAST_CLICKED)
+	{
+		dim(LAST_CLICKED);
+	}
+}
+
+var CURRENT_PAIRS = 0;
+
+function processJSON(json)
+{
+	console.log("RECEIVED");
+	var response = json.target.response;
+	response = JSON.parse(response);
+	console.log(response);
+	response.artObjects.forEach(processArtObject);
+}
+
+var TIME = 100;
+
+const MAP = new Map(); 
+var PAIRS = [];
+
+function processArtObject(obj)
+{
+	if (obj.hasImage == false)
+		return;
+	if (obj.principalOrFirstMaker === undefined || obj.principalOrFirstMaker === "")
+		return;
+	const author = obj.principalOrFirstMaker;
+	if (author === "anoniem")
+		return;
+	if (!MAP.has(author))
+	{	
+		MAP.set(author, obj);
+	}
+	else
+	{
+		var PAIR = {};
+		PAIR.first = MAP.get(author);
+		PAIR.second = obj;
+		if (PAIR.first.webImage.url !== PAIR.second.webImage.url)
+			PAIRS.push(PAIR);
+		MAP.delete(author);
+	}
+}
+
+var lastDone = 1;
+var DONE = 0;
+
+function addPair()
+{
+	if (PAIRS.length == 0)
+	{
+		if (DONE < 100)
+			sendJSON("&ps=100&p="+lastDone, function(e){processJSON(e); addPair();});
+		lastDone++;
+		lastDone%=100;
+		DONE++;
+		return;
+	}
+	else if (PAIRS.length < 20)
+	{
+		if (DONE < 100)
+			sendJSON("&ps=100&p="+lastDone, function(e){processJSON(e);});
+		lastDone++;
+		lastDone%=100;
+		DONE++;
+	}
+	console.log(PAIRS.length);
+	CURRENT_PAIRS++;
+	
+	{
+		var a = PAIRS.length;
+		var b = Math.random() * a;
+		console.log (a|0, b|0);
+		a -=1;
+		a = a|0;
+		b = b|0;
+		var T = PAIRS[a];
+		PAIRS[a] = PAIRS[b];
+		PAIRS[b] = T;
+	}
+
+
+	var obj = PAIRS.pop();
+	var url1 = obj.first.webImage.url;
+	var url2 = obj.second.webImage.url;
+	var new_url1 = url1.substr(0, url1.length-1);
+	var new_url2 = url2.substr(0, url2.length-1);
+	new_url1 += "400";
+	new_url2 += "400";
+	const author = obj.first.principalOrFirstMaker;
+	
+	processUrl(new_url1, author);
+	processUrl(new_url2, author);
+}
+
+function processUrl(url, author)
+{
+	var Q = document.createElement("img");
+	Q.src = url;
+	Q.style.backgroundColor="slategrey";
+	Q.principalOrFirstMaker = author;
+	Q.addEventListener("click", function(ev){clicked(Q);});
+	CICCIO.insert(Q);
+	good = true;
+}
+
+function RAF()
+{
+	window.requestAnimationFrame(RAF);
+	if (good)
+		CICCIO.doStep();
+}
+
+sendJSON("&ps=100&p=0", function(e){processJSON(e); addPair(); addPair();});
+RAF();
+
+  </script>
+</html>
