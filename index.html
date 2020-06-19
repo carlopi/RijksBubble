@@ -33,11 +33,12 @@ function sendJSON(query, F)
 	S += "&toppieces=True";
 	S += "&format=json";	
 	S += "&imgonly=True";
-	S += "&s=relevance";
-//	S += "&f.dating.period=20";
-//	S += "&type=tekening";
+//	S += "&s=relevance";
+//	S += "&f.dating.period=21";
+//	S += "&type=collage";
 //	S += "&type=foto";
 //	S += "&type=schilderij";
+//	S += "&type=boekillustratie";
 	request.open("get", S, true);
 	request.send();
 }
@@ -50,6 +51,9 @@ function dim(obj)
 var LAST_CLICKED = null;
 function clicked(obj)
 {
+	if (obj === LAST_CLICKED)
+		return;
+
 	if (LAST_CLICKED)
 		LAST_CLICKED.style.opacity = 1.0;
 
